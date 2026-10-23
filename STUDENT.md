@@ -41,3 +41,4 @@ screenshoted this will add to assigment on canvas
 | Date | Tag | Notes |
 |:--|:--|:--|
 |  | `starter` | Cloned and built for the first time |
+|10/23/26| 'labs'| completed concept lab 01|

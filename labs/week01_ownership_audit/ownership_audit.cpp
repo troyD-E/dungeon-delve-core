@@ -39,7 +39,7 @@
 
 #include <cstdio>
 #include <cstring>
-#include <string>
+#include <memory>
 #include <vector>
 
 struct Rune {
@@ -47,17 +47,17 @@ struct Rune {
     int   charge;
 };
 
-Rune* make_rune(const char* name, int charge)
+std::unique_ptr<Rune> make_rune(const char* name, int charge)
 {
-    Rune* r = new Rune;
+    auto r = std::make_unique<Rune>();
     std::strncpy(r->name, name, 23);
     r->name[23] = '\0';
     r->charge = charge;
     return r;
 }
 
-/* Returns the total charge of every rune in the satchel. */
-int total_charge(const std::vector<Rune*>& satchel)
+/* Non-owning view of the satchel; returns the total charge of its runes. */
+int total_charge(const std::vector<std::unique_ptr<Rune>>& satchel)
 {
     int total = 0;
     for (size_t i = 0; i < satchel.size(); i++)
@@ -65,30 +65,29 @@ int total_charge(const std::vector<Rune*>& satchel)
     return total;
 }
 
-/* Spends a rune's charge and reports what it was worth. */
-int spend_rune(Rune* r)
+/* The rune reference is non-owning; spends its charge and reports its value. */
+int spend_rune(Rune& r)
 {
-    int spent = r->charge;
-    r->charge = 0;
+    int spent = r.charge;
+    r.charge = 0;
     return spent;
 }
 
 /* Builds the starting satchel. */
-std::vector<Rune*> build_satchel()
+std::vector<std::unique_ptr<Rune>> build_satchel()
 {
-    std::vector<Rune*> satchel;
+    std::vector<std::unique_ptr<Rune>> satchel;
     satchel.push_back(make_rune("Ember",  12));
     satchel.push_back(make_rune("Frost",   8));
     satchel.push_back(make_rune("Gale",   15));
 
-    Rune* spare = make_rune("Spare", 99);
-    delete spare;
+    [[maybe_unused]] auto spare = make_rune("Spare", 99);
 
     return satchel;
 }
 
-/* Finds the strongest rune and hands back a non-owning reference to it. */
-const Rune& strongest_rune(const std::vector<Rune*>& satchel)
+/* Non-owning view of the satchel; returns a non-owning reference to its strongest rune. */
+const Rune& strongest_rune(const std::vector<std::unique_ptr<Rune>>& satchel)
 {
     size_t best = 0;
     for (size_t i = 1; i < satchel.size(); i++) {
@@ -101,19 +100,16 @@ const Rune& strongest_rune(const std::vector<Rune*>& satchel)
 
 int main()
 {
-    std::vector<Rune*> satchel = build_satchel();
+    std::vector<std::unique_ptr<Rune>> satchel = build_satchel();
 
     std::printf("runes in satchel ... %d\n", (int)satchel.size());
     std::printf("total charge ....... %d\n", total_charge(satchel));
 
-    const Rune& strongest = strongest_rune(satchel);
+    const Rune& strongest = strongest_rune(satchel); // Non-owning reference; satchel retains ownership.
     std::printf("strongest rune ..... %s (%d)\n", strongest.name, strongest.charge);
 
-    std::printf("spent Ember ........ %d\n", spend_rune(satchel[0]));
+    std::printf("spent Ember ........ %d\n", spend_rune(*satchel[0]));
     std::printf("total charge ....... %d\n", total_charge(satchel));
-
-    for (size_t i = 0; i < satchel.size(); i++)
-        delete satchel[i];
 
     std::printf("satchel emptied.\n");
     return 0;

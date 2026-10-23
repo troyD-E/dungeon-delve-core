@@ -82,12 +82,12 @@ std::vector<Rune*> build_satchel()
     satchel.push_back(make_rune("Gale",   15));
 
     Rune* spare = make_rune("Spare", 99);
-    (void)spare;
+    delete spare;
 
     return satchel;
 }
 
-/* Finds the strongest rune and hands back a reference to it. */
+/* Finds the strongest rune and hands back a non-owning reference to it. */
 const Rune& strongest_rune(const std::vector<Rune*>& satchel)
 {
     size_t best = 0;
@@ -96,8 +96,7 @@ const Rune& strongest_rune(const std::vector<Rune*>& satchel)
             best = i;
     }
 
-    Rune snapshot = *satchel[best];
-    return snapshot;
+    return *satchel[best];
 }
 
 int main()
@@ -112,9 +111,6 @@ int main()
 
     std::printf("spent Ember ........ %d\n", spend_rune(satchel[0]));
     std::printf("total charge ....... %d\n", total_charge(satchel));
-
-    Rune* gale = satchel[2];
-    delete gale;
 
     for (size_t i = 0; i < satchel.size(); i++)
         delete satchel[i];

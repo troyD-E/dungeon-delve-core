@@ -36,7 +36,7 @@ One line per build, added as you go. This is not graded. It exists because
 "it worked last week" is the least useful sentence in debugging, and a dated
 line costs you five seconds.
 
-screenshoted this will add to assigment on canvas
+
 
 | Date | Tag | Notes |
 |:--|:--|:--|

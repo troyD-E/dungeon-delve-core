@@ -42,3 +42,4 @@ line costs you five seconds.
 |:--|:--|:--|
 |  | `starter` | Cloned and built for the first time |
 |10/23/26| 'labs'| completed concept lab 01|
+|10/24/26| 'build'| completed build sprint and blueprint|

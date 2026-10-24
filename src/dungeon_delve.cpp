@@ -116,7 +116,7 @@ const char* ability_name(int tag)
 
 HeroPtr make_hero(const char* name, int hp, int strength, int armor)
 {
-    Hero* h = new Hero;
+    auto h = std::make_unique<Hero>();
     std::strncpy(h->name, name, 31);
     h->name[31] = '\0';
     h->hp       = hp;
@@ -127,14 +127,14 @@ HeroPtr make_hero(const char* name, int hp, int strength, int armor)
     h->xp       = 0;
     h->level    = 1;
     h->potions  = 2;
-    return HeroPtr{h};
+    return h;
 }
 
 MonsterPtr make_monster(const char* name, const char* species,
                         int hp, int strength, int armor,
                         int gold_drop, int ability_tag)
 {
-    Monster* m = new Monster;
+    auto m = std::make_unique<Monster>();
     std::strncpy(m->name, name, 31);
     m->name[31] = '\0';
     std::strncpy(m->species, species, 23);
@@ -147,12 +147,12 @@ MonsterPtr make_monster(const char* name, const char* species,
     m->ability_tag   = ability_tag;
     m->is_dead       = 0;
     m->summon_budget = (ability_tag == ABIL_SUMMON) ? 1 : 0;
-    return MonsterPtr{m};
+    return m;
 }
 
 MerchantPtr make_merchant(const char* name, int gold, int markup)
 {
-    Merchant* mer = new Merchant;
+    auto mer = std::make_unique<Merchant>();
     std::strncpy(mer->name, name, 31);
     mer->name[31]       = '\0';
     mer->gold           = gold;
@@ -160,7 +160,7 @@ MerchantPtr make_merchant(const char* name, int gold, int markup)
     mer->stock_count    = 0;
     for (int i = 0; i < 8; i++)
         mer->stock_tags[i] = -1;
-    return MerchantPtr{mer};
+    return mer;
 }
 
 /* ---------------------------------------------------------------------------
@@ -181,7 +181,7 @@ int loot_count()
 
 const char* roll_loot()
 {
-    int idx = dd_rand_range(0, LOOT_COUNT);
+    int idx = dd_rand_range(0, LOOT_COUNT - 1);
     return LOOT_TABLE[idx];
 }
 
@@ -235,20 +235,14 @@ int apply_damage_to_hero(Hero& h, int incoming)
 int resolve_attack_on_monster(Hero& attacker, Monster& target)
 {
     int raw_damage = compute_raw_damage(attacker.strength, 3, 6);
-    int after_armor = apply_armor(raw_damage, target.armor);
-
-    apply_damage_to_monster(target, after_armor);
-    return after_armor;
+    return apply_damage_to_monster(target, raw_damage);
 }
 
 /* Monster swings at the hero. Returns the damage that landed. */
 int resolve_attack_on_hero(Monster& attacker, Hero& target)
 {
     int raw_damage = compute_raw_damage(attacker.strength, 2, 6);
-    int after_armor = apply_armor(raw_damage, target.armor);
-
-    apply_damage_to_hero(target, after_armor);
-    return after_armor;
+    return apply_damage_to_hero(target, raw_damage);
 }
 
 /* ---------------------------------------------------------------------------
@@ -363,11 +357,12 @@ int resolve_ability(int tag, Monster& self, Hero& hero,
    Bestiary lookup.
    --------------------------------------------------------------------------- */
 
+/* Returns a non-owning pointer; the Bestiary retains ownership. */
 Monster* find_in_bestiary(Bestiary& bestiary, const char* species)
 {
     for (size_t i = 0; i < bestiary.size(); i++) {
         if (std::strcmp(bestiary[i]->species, species) == 0)
-            return raw(bestiary[i]);
+            return raw(bestiary[i]); /* non-owning; bestiary retains ownership */
     }
     return nullptr;
 }
@@ -399,7 +394,7 @@ Bestiary build_bestiary()
 
 MonsterPtr spawn_from_bestiary(Bestiary& bestiary, const char* species)
 {
-    Monster* proto = find_in_bestiary(bestiary, species);
+    Monster* proto = find_in_bestiary(bestiary, species); /* non-owning */
     if (proto == nullptr) return MonsterPtr{};
 
     return make_monster(proto->name, proto->species, proto->max_hp,
@@ -435,8 +430,10 @@ int run_monster_round(Wave& wave, Hero& hero, int verbose,
 {
     int total = 0;
 
-    for (Wave::iterator it = wave.begin(); it != wave.end(); ++it) {
-        Monster* m = raw(*it);
+    /* Index iteration stays valid when a summon grows the wave; appended monsters
+       continue to take a turn this round, matching the existing encounter flow. */
+    for (size_t i = 0; i < wave.size(); ++i) {
+        Monster* m = raw(wave[i]); /* non-owning; the Wave owns the monster */
 
         if (m->is_dead) continue;
         if (hero.hp <= 0) break;
@@ -612,10 +609,13 @@ HeroPtr load_hero(const char* path)
     FILE* f = std::fopen(path, "r");
     if (f == nullptr) return HeroPtr{};
 
-    Hero* h = new Hero;
+    auto h = std::make_unique<Hero>();
     char line[64];
 
-    if (std::fgets(line, 64, f) == nullptr) { std::fclose(f); delete h; return HeroPtr{}; }
+    if (std::fgets(line, 64, f) == nullptr) {
+        std::fclose(f);
+        return HeroPtr{};
+    }
     size_t n = std::strlen(line);
     if (n > 0 && line[n - 1] == '\n') line[n - 1] = '\0';
     std::strncpy(h->name, line, 31);
@@ -631,7 +631,7 @@ HeroPtr load_hero(const char* path)
     std::fscanf(f, "%d", &h->potions);
 
     std::fclose(f);
-    return HeroPtr{h};
+    return h;
 }
 
 /* ---------------------------------------------------------------------------

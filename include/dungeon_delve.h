@@ -7,8 +7,7 @@
    READ THIS BEFORE BUILD 1.
 
    The three aliases below -- MonsterPtr, HeroPtr, MerchantPtr -- are the
-   ownership model of this entire engine, written down in three lines. Right
-   now all three are raw pointers, and nothing in the program deletes them.
+   ownership model of this entire engine, written down in three lines.
 
    Your Build 1 conversion happens HERE first. Change an alias to a smart
    pointer and the whole engine follows, including the tests. That is the
@@ -67,24 +66,19 @@ struct Merchant {
 /* ---------------------------------------------------------------------------
    THE OWNERSHIP MODEL.
 
-   Change these three lines in Build 1. Nothing else about the shape of the
-   program has to change with them.
+   These aliases express unique ownership throughout the engine.
    --------------------------------------------------------------------------- */
 
-using MonsterPtr  = Monster*;
-using HeroPtr     = Hero*;
-using MerchantPtr = Merchant*;
+using MonsterPtr  = std::unique_ptr<Monster>;
+using HeroPtr     = std::unique_ptr<Hero>;
+using MerchantPtr = std::unique_ptr<Merchant>;
 
 using Wave     = std::vector<MonsterPtr>;
 using Bestiary = std::vector<MonsterPtr>;
 
-/* Produces a plain non-owning Monster* from whatever MonsterPtr currently is.
-   Use this when a function needs to hand back something to look at without
-   handing over ownership. Both overloads are here on purpose: one of them
-   stops compiling being a problem when you change the alias. */
+/* Produces a non-owning Monster* for observation without transferring ownership. */
 inline Monster* raw(Monster* p)                            { return p; }
 inline Monster* raw(const std::unique_ptr<Monster>& p)     { return p.get(); }
-inline Monster* raw(const std::shared_ptr<Monster>& p)     { return p.get(); }
 
 /* ---------------------------------------------------------------------------
    Ability tags.
@@ -106,6 +100,9 @@ inline Monster* raw(const std::shared_ptr<Monster>& p)     { return p.get(); }
 /* ---------------------------------------------------------------------------
    The engine.
    --------------------------------------------------------------------------- */
+
+/* Entity references in engine APIs are borrowed; ownership stays with the
+   caller or the owning Wave/Bestiary. */
 
 /* RNG -- deterministic for a given seed, so a bug you can reproduce once you
    can reproduce every time. */
@@ -136,17 +133,19 @@ int resolve_attack_on_hero(Monster& attacker, Hero& target);
 
 /* Abilities. */
 const char* ability_name(int tag);
+/* self and hero are non-owning references; monsters remain owned by wave. */
 int resolve_ability(int tag, Monster& self, Hero& hero, Wave& wave, int verbose);
 
 /* Bestiary. */
 Bestiary   build_bestiary();
-Monster*   find_in_bestiary(Bestiary& bestiary, const char* species);
+Monster*   find_in_bestiary(Bestiary& bestiary, const char* species); /* non-owning */
 int        count_species_in_bestiary(Bestiary& bestiary, const char* species);
 MonsterPtr spawn_from_bestiary(Bestiary& bestiary, const char* species);
 
 /* Encounters. */
 int  wave_is_cleared(Wave& wave);
 int  living_in_wave(Wave& wave);
+/* acted_names is borrowed when non-null; run_monster_round does not own it. */
 int  run_monster_round(Wave& wave, Hero& hero, int verbose,
                        std::vector<std::string>* acted_names);
 int  run_hero_round(Wave& wave, Hero& hero, int verbose);

@@ -44,3 +44,4 @@ line costs you five seconds.
 |10/23/26| 'labs'| completed concept lab 01|
 |10/24/26| 'build'| completed build sprint and blueprint|
 |10/31/26| 'Labs' | Completed concept lab 02|
+|10/31/26| 'Build 02'| Build 02 is implemented|

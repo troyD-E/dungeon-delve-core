@@ -138,9 +138,11 @@ struct Merchant {
 
 class EncounterMath {
 public:
-    // const& avoids input copies; returning this small Damage is direct and
-    // normally elided. The out-parameter saves no meaningful cost here and
-    // requires a mutable result object, but supports callers needing that API.
+    // The const& overloads avoid copying their input values and return a small
+    // Damage value, which is normally elided. The out-parameter overload also
+    // avoids input copies, but requires a caller-owned mutable result object;
+    // it avoids returning a result value without providing a meaningful
+    // performance benefit for this small type.
     static Damage resolve(const Dice& dice, int strength);
     static Damage resolve(const Damage& incoming, int armor);
     static void resolve(const Damage& incoming, int armor, Damage& result);

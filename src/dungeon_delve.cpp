@@ -23,6 +23,7 @@
 #include <cmath>
 #include <limits>
 #include <memory>
+#include <ostream>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -53,10 +54,17 @@ Coin operator+(Coin lhs, const Coin& rhs)
     return lhs;
 }
 
+std::ostream& operator<<(std::ostream& out, const Coin& coin)
+{
+    return out << "Coin{ " << coin.value() << " }";
+}
+
 Dice::Dice(int count, int sides) : count_(count), sides_(sides)
 {
     if (count <= 0 || sides <= 0)
         throw std::invalid_argument("Dice count and sides must be positive");
+    if (count > std::numeric_limits<int>::max() / sides)
+        throw std::invalid_argument("Maximum dice roll exceeds the supported range");
 }
 
 int Dice::count() const
@@ -146,7 +154,7 @@ Damage operator+(Damage lhs, const Damage& rhs)
     return lhs;
 }
 
-Purse::Purse(Coin initial_total) : total_(std::move(initial_total))
+Purse::Purse(const Coin& initial_total) : total_(initial_total)
 {
 }
 
@@ -337,16 +345,64 @@ int loot_value_of(const char* loot_name)
    Damage.
    --------------------------------------------------------------------------- */
 
+Damage EncounterMath::resolve(const Dice& dice, int strength)
+{
+    if (strength < 0)
+        throw std::invalid_argument("Strength cannot be negative");
+
+    const int roll = dice.roll();
+    if (strength > std::numeric_limits<int>::max() - roll)
+        throw std::overflow_error("Raw damage overflow");
+    return Damage{strength + roll};
+}
+
+Damage EncounterMath::resolve(const Damage& incoming, int armor)
+{
+    if (armor < 0)
+        throw std::invalid_argument("Armor cannot be negative");
+
+    const int reduced = incoming.value() - armor;
+    return Damage{reduced < 1 ? 1 : reduced};
+}
+
+void EncounterMath::resolve(const Damage& incoming, int armor, Damage& result)
+{
+    result = resolve(incoming, armor);
+}
+
+Damage EncounterMath::resolve(const Hero& attacker, Monster& target)
+{
+    const Damage raw = resolve(Dice{3, 6}, attacker.strength);
+    const Damage dealt = resolve(raw, target.armor);
+
+    target.hp -= dealt.value();
+    if (target.hp <= 0) {
+        target.hp = 0;
+        target.is_dead = 1;
+    }
+    return dealt;
+}
+
+Damage EncounterMath::resolve(Monster& attacker, Hero& target)
+{
+    const Damage raw = resolve(Dice{2, 6}, attacker.strength);
+    Damage dealt;
+    resolve(raw, target.armor, dealt);
+
+    target.hp -= dealt.value();
+    if (target.hp < 0)
+        target.hp = 0;
+    return dealt;
+}
+
 int compute_raw_damage(int strength, int dice_count, int dice_sides)
 {
-    return strength + roll_dice(dice_count, dice_sides);
+    return EncounterMath::resolve(Dice{dice_count, dice_sides}, strength).value();
 }
 
 int apply_armor(int raw_damage, int armor)
 {
-    int out = raw_damage - armor;
-    if (out < 1) out = 1;
-    return out;
+    return EncounterMath::resolve(Damage{raw_damage}, armor).value();
 }
 
 int apply_damage_to_monster(Monster& m, int incoming)
@@ -373,15 +429,13 @@ int apply_damage_to_hero(Hero& h, int incoming)
 /* Hero swings at a monster. Returns the damage that landed. */
 int resolve_attack_on_monster(Hero& attacker, Monster& target)
 {
-    int raw_damage = compute_raw_damage(attacker.strength, 3, 6);
-    return apply_damage_to_monster(target, raw_damage);
+    return EncounterMath::resolve(attacker, target).value();
 }
 
 /* Monster swings at the hero. Returns the damage that landed. */
 int resolve_attack_on_hero(Monster& attacker, Hero& target)
 {
-    int raw_damage = compute_raw_damage(attacker.strength, 2, 6);
-    return apply_damage_to_hero(target, raw_damage);
+    return EncounterMath::resolve(attacker, target).value();
 }
 
 /* ---------------------------------------------------------------------------
@@ -537,7 +591,7 @@ MonsterPtr spawn_from_bestiary(Bestiary& bestiary, const char* species)
     if (proto == nullptr) return MonsterPtr{};
 
     return make_monster(proto->name, proto->species, proto->max_hp,
-                        proto->strength, proto->armor, proto->gold_drop,
+                        proto->strength, proto->armor, proto->gold_drop.value(),
                         proto->ability_tag);
 }
 
@@ -636,21 +690,22 @@ int run_encounter(Hero& hero, Wave& wave, int verbose)
         return 0;
     }
 
-    int gold = 0;
+    Coin gold;
     for (size_t i = 0; i < wave.size(); i++) {
         if (wave[i]->is_dead)
             gold += wave[i]->gold_drop;
     }
 
-    hero.gold += gold;
-    hero.xp   += gold * 2;
+    hero.purse.deposit(gold);
+    hero.xp += gold.value() * 2;
 
     const char* drop = roll_loot();
 
     if (verbose) {
         std::printf("\nWave cleared.\n");
-        std::printf("  gold ...... %d\n", gold);
+        std::printf("  gold ...... %d\n", gold.value());
         std::printf("  loot ...... %s (worth %d)\n", drop, loot_value_of(drop));
+        std::printf("  purse total: %d gold\n", hero.purse.total().value());
     }
 
     return 1;
@@ -695,16 +750,17 @@ void visit_merchant(Merchant& mer, Hero& hero, int verbose)
     if (verbose) {
         std::printf("\n--- %s's stall ---\n", mer.name);
         std::printf("  potion ..... %d gold (you have %d)\n",
-                    potion_price, hero.gold);
+                    potion_price, hero.purse.total().value());
     }
 
-    while (hero.gold >= potion_price && hero.potions < 5) {
-        hero.gold -= potion_price;
+    const Coin price{potion_price};
+    while (hero.purse.total().value() >= potion_price && hero.potions < 5) {
+        if (!hero.purse.spend(price)) break;
         hero.potions++;
-        mer.gold  += potion_price;
+        mer.gold += price;
         if (verbose)
             std::printf("  bought a potion. potions=%d gold=%d\n",
-                        hero.potions, hero.gold);
+                        hero.potions, hero.purse.total().value());
     }
 }
 
@@ -734,7 +790,7 @@ int save_hero(Hero& h, const char* path)
     std::fprintf(f, "%d\n", h.max_hp);
     std::fprintf(f, "%d\n", h.strength);
     std::fprintf(f, "%d\n", h.armor);
-    std::fprintf(f, "%d\n", h.gold);
+    std::fprintf(f, "%d\n", h.purse.total().value());
     std::fprintf(f, "%d\n", h.xp);
     std::fprintf(f, "%d\n", h.level);
     std::fprintf(f, "%d\n", h.potions);
@@ -750,6 +806,14 @@ HeroPtr load_hero(const char* path)
 
     auto h = std::make_unique<Hero>();
     char line[64];
+    int hp = 0;
+    int max_hp = 0;
+    int strength = 0;
+    int armor = 0;
+    int gold = 0;
+    int xp = 0;
+    int level = 0;
+    int potions = 0;
 
     if (std::fgets(line, 64, f) == nullptr) {
         std::fclose(f);
@@ -760,16 +824,31 @@ HeroPtr load_hero(const char* path)
     std::strncpy(h->name, line, 31);
     h->name[31] = '\0';
 
-    std::fscanf(f, "%d", &h->hp);
-    std::fscanf(f, "%d", &h->max_hp);
-    std::fscanf(f, "%d", &h->strength);
-    std::fscanf(f, "%d", &h->armor);
-    std::fscanf(f, "%d", &h->gold);
-    std::fscanf(f, "%d", &h->xp);
-    std::fscanf(f, "%d", &h->level);
-    std::fscanf(f, "%d", &h->potions);
+    if (std::fscanf(f, "%d", &hp) != 1
+        || std::fscanf(f, "%d", &max_hp) != 1
+        || std::fscanf(f, "%d", &strength) != 1
+        || std::fscanf(f, "%d", &armor) != 1
+        || std::fscanf(f, "%d", &gold) != 1
+        || std::fscanf(f, "%d", &xp) != 1
+        || std::fscanf(f, "%d", &level) != 1
+        || std::fscanf(f, "%d", &potions) != 1) {
+        std::fclose(f);
+        return HeroPtr{};
+    }
 
     std::fclose(f);
+
+    if (gold < 0)
+        return HeroPtr{};
+
+    h->hp = hp;
+    h->max_hp = max_hp;
+    h->strength = strength;
+    h->armor = armor;
+    h->purse.deposit(Coin{gold});
+    h->xp = xp;
+    h->level = level;
+    h->potions = potions;
     return h;
 }
 
@@ -792,7 +871,7 @@ void print_hero(Hero& h)
     std::printf("  HP ......... %d / %d\n", h.hp, h.max_hp);
     std::printf("  STR ........ %d\n", h.strength);
     std::printf("  ARMOR ...... %d\n", h.armor);
-    std::printf("  GOLD ....... %d\n", h.gold);
+    std::printf("  GOLD ....... %d\n", h.purse.total().value());
     std::printf("  XP ......... %d / %d\n", h.xp, xp_for_next_level(h.level));
     std::printf("  POTIONS .... %d\n", h.potions);
 }
@@ -816,7 +895,7 @@ void print_bestiary(Bestiary& bestiary)
         std::printf("  %-14s %-11s %3d HP  str %-2d  armor %-2d  gold %-3d  %s\n",
                     bestiary[i]->name, bestiary[i]->species,
                     bestiary[i]->max_hp, bestiary[i]->strength,
-                    bestiary[i]->armor, bestiary[i]->gold_drop,
+                    bestiary[i]->armor, bestiary[i]->gold_drop.value(),
                     ability_name(bestiary[i]->ability_tag));
     }
 }
@@ -917,7 +996,7 @@ int run_campaign(int verbose)
         std::printf("\n");
         for (int i = 0; i < 64; i++) std::printf("=");
         std::printf("\n  %s clears the delve with %d gold.\n",
-                    hero.name, hero.gold);
+                    hero.name, hero.purse.total().value());
         for (int i = 0; i < 64; i++) std::printf("=");
         std::printf("\n");
     }

@@ -20,10 +20,153 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <cmath>
+#include <limits>
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
+
+Coin::Coin(int amount) : amount_(amount)
+{
+    if (amount < 0)
+        throw std::invalid_argument("Coin amount cannot be negative");
+}
+
+int Coin::value() const
+{
+    return amount_;
+}
+
+Coin& Coin::operator+=(const Coin& other)
+{
+    if (other.amount_ > std::numeric_limits<int>::max() - amount_)
+        throw std::overflow_error("Coin amount overflow");
+    amount_ += other.amount_;
+    return *this;
+}
+
+Coin operator+(Coin lhs, const Coin& rhs)
+{
+    lhs += rhs;
+    return lhs;
+}
+
+Dice::Dice(int count, int sides) : count_(count), sides_(sides)
+{
+    if (count <= 0 || sides <= 0)
+        throw std::invalid_argument("Dice count and sides must be positive");
+}
+
+int Dice::count() const
+{
+    return count_;
+}
+
+int Dice::sides() const
+{
+    return sides_;
+}
+
+int Dice::roll() const
+{
+    int total = 0;
+    for (int i = 0; i < count_; ++i)
+        total += dd_rand_range(1, sides_);
+    return total;
+}
+
+Vec2::Vec2(double x, double y) : x_(x), y_(y)
+{
+    if (!std::isfinite(x) || !std::isfinite(y))
+        throw std::invalid_argument("Vec2 coordinates must be finite");
+}
+
+double Vec2::x() const
+{
+    return x_;
+}
+
+double Vec2::y() const
+{
+    return y_;
+}
+
+Vec2& Vec2::operator+=(const Vec2& other)
+{
+    Vec2 result{x_ + other.x_, y_ + other.y_};
+    x_ = result.x_;
+    y_ = result.y_;
+    return *this;
+}
+
+Vec2& Vec2::operator-=(const Vec2& other)
+{
+    Vec2 result{x_ - other.x_, y_ - other.y_};
+    x_ = result.x_;
+    y_ = result.y_;
+    return *this;
+}
+
+Vec2 operator+(Vec2 lhs, const Vec2& rhs)
+{
+    lhs += rhs;
+    return lhs;
+}
+
+Vec2 operator-(Vec2 lhs, const Vec2& rhs)
+{
+    lhs -= rhs;
+    return lhs;
+}
+
+Damage::Damage(int amount) : amount_(amount)
+{
+    if (amount < 0)
+        throw std::invalid_argument("Damage amount cannot be negative");
+}
+
+int Damage::value() const
+{
+    return amount_;
+}
+
+Damage& Damage::operator+=(const Damage& other)
+{
+    if (other.amount_ > std::numeric_limits<int>::max() - amount_)
+        throw std::overflow_error("Damage amount overflow");
+    amount_ += other.amount_;
+    return *this;
+}
+
+Damage operator+(Damage lhs, const Damage& rhs)
+{
+    lhs += rhs;
+    return lhs;
+}
+
+Purse::Purse(Coin initial_total) : total_(std::move(initial_total))
+{
+}
+
+const Coin& Purse::total() const
+{
+    return total_;
+}
+
+void Purse::deposit(const Coin& amount)
+{
+    total_ += amount;
+}
+
+bool Purse::spend(const Coin& amount)
+{
+    if (amount.value() > total_.value())
+        return false;
+    total_ = Coin{total_.value() - amount.value()};
+    return true;
+}
 
 /* ---------------------------------------------------------------------------
    RNG. Rolled our own so the numbers are the same on every machine, which
@@ -52,10 +195,7 @@ int dd_rand_range(int lo, int hi)
 
 int roll_dice(int count, int sides)
 {
-    int total = 0;
-    for (int i = 0; i < count; i++)
-        total += dd_rand_range(1, sides);
-    return total;
+    return Dice{count, sides}.roll();
 }
 
 /* ---------------------------------------------------------------------------
@@ -123,7 +263,6 @@ HeroPtr make_hero(const char* name, int hp, int strength, int armor)
     h->max_hp   = hp;
     h->strength = strength;
     h->armor    = armor;
-    h->gold     = 0;
     h->xp       = 0;
     h->level    = 1;
     h->potions  = 2;
@@ -143,7 +282,7 @@ MonsterPtr make_monster(const char* name, const char* species,
     m->max_hp        = hp;
     m->strength      = strength;
     m->armor         = armor;
-    m->gold_drop     = gold_drop;
+    m->gold_drop     = Coin{gold_drop};
     m->ability_tag   = ability_tag;
     m->is_dead       = 0;
     m->summon_budget = (ability_tag == ABIL_SUMMON) ? 1 : 0;
@@ -155,7 +294,7 @@ MerchantPtr make_merchant(const char* name, int gold, int markup)
     auto mer = std::make_unique<Merchant>();
     std::strncpy(mer->name, name, 31);
     mer->name[31]       = '\0';
-    mer->gold           = gold;
+    mer->gold           = Coin{gold};
     mer->markup_percent = markup;
     mer->stock_count    = 0;
     for (int i = 0; i < 8; i++)

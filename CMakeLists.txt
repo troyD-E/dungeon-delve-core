@@ -96,6 +96,12 @@ add_executable(prediction_table labs/week02_prediction_table/prediction_table.cp
 target_link_libraries(prediction_table PRIVATE dd_sanitize_flags)
 
 # ---------------------------------------------------------------------------
+# Week 3 — Same Problem, Twice.
+# ---------------------------------------------------------------------------
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
+add_subdirectory(labs/week03_same_problem_twice)
+
+# ---------------------------------------------------------------------------
 # Tests.
 # ---------------------------------------------------------------------------
 enable_testing()

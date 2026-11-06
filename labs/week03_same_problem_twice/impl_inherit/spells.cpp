@@ -5,9 +5,8 @@
 //  Model the three spells in spellbook.h as a class hierarchy: one abstract
 //  base, one derived class per spell, virtual dispatch to the effect.
 //
-//  This file compiles as delivered and registers nothing, so the tests fail
-//  until you implement it. Build it first anyway -- a scaffold that does not
-//  compile is a different problem than the one this lab is about.
+//  The base class owns the shared mana rule; each derived class supplies its
+//  spell-specific effect.
 //
 //  You may add more files to this folder. The build picks up every .cpp in
 //  impl_inherit/ automatically; you never edit CMakeLists.txt. Whether you
@@ -51,11 +50,125 @@
 // sanitizer will not report them. If you reach for new here, you also own
 // the matching delete.
 
-// TODO: declare the abstract base class and its three derived classes here.
+namespace {
 
-// TODO: build the registry -- whatever lets the four functions below answer
-//       by index. Keep the order the same as in impl_compose/spells.cpp so
-//       the two drivers print identical transcripts.
+class Spell {
+public:
+    virtual ~Spell() = default;
+    virtual const char* name() const = 0;
+    virtual int mana_cost() const = 0;
+
+    CastResult cast(Caster& caster, Target& target) const
+    {
+        CastResult result{false, 0, 0, 0, 0, 0};
+        const int cost = mana_cost();
+        if (caster.mana < cost)
+            return result;
+
+        caster.mana -= cost;
+        result.cast = true;
+        result.mana_spent = cost;
+        effect(caster, target, result);
+        return result;
+    }
+
+protected:
+    virtual void effect(Caster& caster, Target& target,
+                        CastResult& result) const = 0;
+};
+
+static void apply_damage(Target& target, int raw_damage, int& damage_dealt)
+{
+    damage_dealt = raw_damage - target.ward;
+    if (damage_dealt < 1)
+        damage_dealt = 1;
+    target.hp -= damage_dealt;
+    if (target.hp < 0)
+        target.hp = 0;
+}
+
+class Fireball final : public Spell {
+public:
+    const char* name() const override { return "Fireball"; }
+    int mana_cost() const override { return 6; }
+
+private:
+    void effect(Caster&, Target& target, CastResult& result) const override
+    {
+        apply_damage(target, 9, result.damage_dealt);
+    }
+};
+
+class Mend final : public Spell {
+public:
+    const char* name() const override { return "Mend"; }
+    int mana_cost() const override { return 4; }
+
+private:
+    void effect(Caster& caster, Target&, CastResult& result) const override
+    {
+        int healing = 7;
+        const int room = caster.max_hp - caster.hp;
+        if (healing > room)
+            healing = room;
+        if (healing < 0)
+            healing = 0;
+        caster.hp += healing;
+        result.healing_done = healing;
+    }
+};
+
+class Summon final : public Spell {
+public:
+    const char* name() const override { return "Summon"; }
+    int mana_cost() const override { return 8; }
+
+private:
+    void effect(Caster& caster, Target& target, CastResult& result) const override
+    {
+        if (caster.summon_budget > 0) {
+            --caster.summon_budget;
+            ++caster.minions;
+            result.minions_added = 1;
+        } else {
+            apply_damage(target, 3, result.damage_dealt);
+        }
+    }
+};
+
+class Hex final : public Spell {
+public:
+    const char* name() const override { return "Hex"; }
+    int mana_cost() const override { return 3; }
+
+private:
+    void effect(Caster&, Target& target, CastResult& result) const override
+    {
+        int drained = 2;
+        if (target.strength - drained < 1)
+            drained = target.strength - 1;
+        if (drained < 0)
+            drained = 0;
+        target.strength -= drained;
+        result.strength_drained = drained;
+    }
+};
+
+const Fireball fireball;
+const Mend mend;
+const Summon summon;
+const Hex hex;
+const Spell* const spells[] = {&fireball, &mend, &summon, &hex};
+constexpr int spell_total = static_cast<int>(sizeof(spells) / sizeof(spells[0]));
+
+const Spell* spell_at(int index)
+{
+    if (index < 0 || index >= spell_total)
+        return nullptr;
+    return spells[index];
+}
+
+} // namespace
 
 // ---------------------------------------------------------------- the API
 //
@@ -63,30 +176,25 @@
 
 int spell_count()
 {
-    // TODO: return the number of registered spells (3 now, 4 after Step 4).
-    return 0;
+    return spell_total;
 }
 
-const char* spell_name([[maybe_unused]] int index)
+const char* spell_name(int index)
 {
-    // TODO: return the name of the spell at this index, or nullptr if the
-    //       index is out of range.
-    return nullptr;
+    const Spell* spell = spell_at(index);
+    return spell == nullptr ? nullptr : spell->name();
 }
 
-int spell_mana_cost([[maybe_unused]] int index)
+int spell_mana_cost(int index)
 {
-    // TODO: return the mana cost of the spell at this index, or 0 if the
-    //       index is out of range.
-    return 0;
+    const Spell* spell = spell_at(index);
+    return spell == nullptr ? 0 : spell->mana_cost();
 }
 
-CastResult cast_spell([[maybe_unused]] int index,
-                      [[maybe_unused]] Caster& caster,
-                      [[maybe_unused]] Target& target)
+CastResult cast_spell(int index, Caster& caster, Target& target)
 {
-    // TODO: pay the mana if the caster can afford it, run the spell's effect,
-    //       and report what actually happened. An out-of-range index casts
-    //       nothing: return the all-zero result below.
-    return CastResult{false, 0, 0, 0, 0, 0};
+    const Spell* spell = spell_at(index);
+    if (spell == nullptr)
+        return CastResult{false, 0, 0, 0, 0, 0};
+    return spell->cast(caster, target);
 }

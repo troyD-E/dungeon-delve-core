@@ -6,8 +6,7 @@
 //  A spell is a plain value that HAS the pieces that vary -- a name, a cost,
 //  and a thing it does -- rather than a type that IS a kind of spell.
 //
-//  This file compiles as delivered and registers nothing, so the tests fail
-//  until you implement it. Build it first anyway.
+//  A Spell value combines its name, mana cost, and effect function.
 //
 //  You may add more files to this folder. The build picks up every .cpp in
 //  impl_compose/ automatically; you never edit CMakeLists.txt.
@@ -53,11 +52,81 @@
 // difference from the inheritance version and worth a line in your write-up:
 // there is no base class to hang it on, so it hangs on the dispatcher.
 
-// TODO: define the Spell value type and the three effect functions here.
+namespace {
 
-// TODO: build the table. Keep the order the same as in
-//       impl_inherit/spells.cpp so the two drivers print identical
-//       transcripts.
+using EffectFn = void (*)(Caster&, Target&, CastResult&);
+
+struct Spell {
+    const char* name;
+    int mana_cost;
+    EffectFn effect;
+};
+
+static void apply_damage(Target& target, int raw_damage, int& damage_dealt)
+{
+    damage_dealt = raw_damage - target.ward;
+    if (damage_dealt < 1)
+        damage_dealt = 1;
+    target.hp -= damage_dealt;
+    if (target.hp < 0)
+        target.hp = 0;
+}
+
+static void fireball_effect(Caster&, Target& target, CastResult& result)
+{
+    apply_damage(target, 9, result.damage_dealt);
+}
+
+static void mend_effect(Caster& caster, Target&, CastResult& result)
+{
+    int healing = 7;
+    const int room = caster.max_hp - caster.hp;
+    if (healing > room)
+        healing = room;
+    if (healing < 0)
+        healing = 0;
+    caster.hp += healing;
+    result.healing_done = healing;
+}
+
+static void summon_effect(Caster& caster, Target& target, CastResult& result)
+{
+    if (caster.summon_budget > 0) {
+        --caster.summon_budget;
+        ++caster.minions;
+        result.minions_added = 1;
+    } else {
+        apply_damage(target, 3, result.damage_dealt);
+    }
+}
+
+static void hex_effect(Caster&, Target& target, CastResult& result)
+{
+    int drained = 2;
+    if (target.strength - drained < 1)
+        drained = target.strength - 1;
+    if (drained < 0)
+        drained = 0;
+    target.strength -= drained;
+    result.strength_drained = drained;
+}
+
+const Spell spells[] = {
+    {"Fireball", 6, &fireball_effect},
+    {"Mend",     4, &mend_effect},
+    {"Summon",   8, &summon_effect},
+    {"Hex",      3, &hex_effect},
+};
+constexpr int spell_total = static_cast<int>(sizeof(spells) / sizeof(spells[0]));
+
+const Spell* spell_at(int index)
+{
+    if (index < 0 || index >= spell_total)
+        return nullptr;
+    return &spells[index];
+}
+
+} // namespace
 
 // ---------------------------------------------------------------- the API
 //
@@ -65,30 +134,34 @@
 
 int spell_count()
 {
-    // TODO: return the number of registered spells (3 now, 4 after Step 4).
-    return 0;
+    return spell_total;
 }
 
-const char* spell_name([[maybe_unused]] int index)
+const char* spell_name(int index)
 {
-    // TODO: return the name of the spell at this index, or nullptr if the
-    //       index is out of range.
-    return nullptr;
+    const Spell* spell = spell_at(index);
+    return spell == nullptr ? nullptr : spell->name;
 }
 
-int spell_mana_cost([[maybe_unused]] int index)
+int spell_mana_cost(int index)
 {
-    // TODO: return the mana cost of the spell at this index, or 0 if the
-    //       index is out of range.
-    return 0;
+    const Spell* spell = spell_at(index);
+    return spell == nullptr ? 0 : spell->mana_cost;
 }
 
-CastResult cast_spell([[maybe_unused]] int index,
-                      [[maybe_unused]] Caster& caster,
-                      [[maybe_unused]] Target& target)
+CastResult cast_spell(int index, Caster& caster, Target& target)
 {
-    // TODO: pay the mana if the caster can afford it, run the spell's effect,
-    //       and report what actually happened. An out-of-range index casts
-    //       nothing: return the all-zero result below.
-    return CastResult{false, 0, 0, 0, 0, 0};
+    const Spell* spell = spell_at(index);
+    if (spell == nullptr)
+        return CastResult{false, 0, 0, 0, 0, 0};
+
+    CastResult result{false, 0, 0, 0, 0, 0};
+    if (caster.mana < spell->mana_cost)
+        return result;
+
+    caster.mana -= spell->mana_cost;
+    result.cast = true;
+    result.mana_spent = spell->mana_cost;
+    spell->effect(caster, target, result);
+    return result;
 }

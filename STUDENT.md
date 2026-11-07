@@ -45,4 +45,5 @@ line costs you five seconds.
 |10/24/26| 'build'| completed build sprint and blueprint|
 |10/31/26| 'Labs' | Completed concept lab 02|
 |10/31/26| 'Build 02'| Build 02 is implemented|
-|11/06/26/ 'Lab 03| Concept lab 03 is completed/implemented|
+|11/06/26| 'Lab 03| Concept lab 03 is finish/implemented|
+|11/07/26| 'build 03| Build 03 hierarchy is complete|

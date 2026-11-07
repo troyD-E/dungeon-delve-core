@@ -98,42 +98,83 @@ private:
     Coin total_;
 };
 
-/* ---------------------------------------------------------------------------
-   Entities. Three separate structs. They share most of their fields but a
-   hero is not a monster and a monster is not a merchant, so three structs.
-   --------------------------------------------------------------------------- */
+class Describable {
+public:
+    virtual ~Describable() = default;
+    virtual void describe(std::ostream& out) const = 0;
+};
 
-struct Hero {
-    char name[32];
-    int  hp;
-    int  max_hp;
-    int  strength;
-    int  armor;
+class Entity : public virtual Describable {
+public:
+    virtual ~Entity() = default;
+
+    char name[32] = {};
+};
+
+class Combatant : public virtual Entity {
+public:
+    virtual ~Combatant() = default;
+
+    int hp = 0;
+    int max_hp = 0;
+    int strength = 0;
+    int armor = 0;
+
+    virtual int take_damage(int incoming);
+};
+
+class Lootable : public virtual Entity {
+public:
+    virtual ~Lootable() = default;
+
+    virtual Coin loot_value() const = 0;
+};
+
+/*
+   Combatant and Lootable virtually inherit Entity. Monster inherits both
+   mixins, so these paths form a diamond. Virtual inheritance makes them share
+   one Entity, and therefore one Describable subobject.
+*/
+
+struct Hero : Combatant {
     Purse purse;
-    int  xp;
-    int  level;
-    int  potions;
+    int xp = 0;
+    int level = 1;
+    int potions = 0;
+
+    void describe(std::ostream& out) const override;
 };
 
-struct Monster {
-    char name[32];
-    char species[24];
-    int  hp;
-    int  max_hp;
-    int  strength;
-    int  armor;
+struct Monster : Combatant, Lootable {
+    char species[24] = {};
     Coin gold_drop;
-    int  ability_tag;
-    int  is_dead;
-    int  summon_budget;
+    int ability_tag = 0;
+    int is_dead = 0;
+    int summon_budget = 0;
+
+    int take_damage(int incoming) override;
+    Coin loot_value() const override;
+    void describe(std::ostream& out) const override;
 };
 
-struct Merchant {
-    char name[32];
+struct Merchant : Lootable {
     Coin gold;
-    int  markup_percent;
-    int  stock_tags[8];
-    int  stock_count;
+    int markup_percent = 0;
+    int stock_tags[8] = {};
+    int stock_count = 0;
+
+    Coin loot_value() const override;
+    void describe(std::ostream& out) const override;
+};
+
+class Roster {
+public:
+    /* The roster borrows entities; their owners must outlive the roster. */
+    void add(const Entity& entity);
+    void describe_all() const;
+
+private:
+    std::vector<const Entity*> entities_;
 };
 
 class EncounterMath {

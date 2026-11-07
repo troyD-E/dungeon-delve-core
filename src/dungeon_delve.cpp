@@ -21,6 +21,8 @@
 #include <cstdlib>
 #include <cstring>
 #include <cmath>
+#include <iomanip>
+#include <iostream>
 #include <limits>
 #include <memory>
 #include <ostream>
@@ -174,6 +176,66 @@ bool Purse::spend(const Coin& amount)
         return false;
     total_ = Coin{total_.value() - amount.value()};
     return true;
+}
+
+int Combatant::take_damage(int incoming)
+{
+    const int dealt = apply_armor(incoming, armor);
+    hp -= dealt;
+    if (hp < 0)
+        hp = 0;
+    return dealt;
+}
+
+int Monster::take_damage(int incoming)
+{
+    const int dealt = Combatant::take_damage(incoming);
+    if (hp == 0)
+        is_dead = 1;
+    return dealt;
+}
+
+Coin Monster::loot_value() const
+{
+    return gold_drop;
+}
+
+Coin Merchant::loot_value() const
+{
+    return gold;
+}
+
+void Hero::describe(std::ostream& out) const
+{
+    out << "  " << std::left << std::setw(11) << "[Hero]" << std::setw(13) << name
+        << std::right << std::setw(3) << hp << "/" << max_hp
+        << "  HP   combatant";
+}
+
+void Monster::describe(std::ostream& out) const
+{
+    out << "  " << std::left << std::setw(11) << "[Monster]" << std::setw(13) << name
+        << std::right << std::setw(3) << hp << "/" << max_hp
+        << "  HP   combatant, lootable";
+}
+
+void Merchant::describe(std::ostream& out) const
+{
+    out << "  " << std::left << std::setw(11) << "[Merchant]" << std::setw(13) << name
+        << " --          lootable";
+}
+
+void Roster::add(const Entity& entity)
+{
+    entities_.push_back(&entity);
+}
+
+void Roster::describe_all() const
+{
+    for (const Entity* entity : entities_) {
+        entity->describe(std::cout);
+        std::cout << '\n';
+    }
 }
 
 /* ---------------------------------------------------------------------------
@@ -373,26 +435,13 @@ void EncounterMath::resolve(const Damage& incoming, int armor, Damage& result)
 Damage EncounterMath::resolve(const Hero& attacker, Monster& target)
 {
     const Damage raw = resolve(Dice{3, 6}, attacker.strength);
-    const Damage dealt = resolve(raw, target.armor);
-
-    target.hp -= dealt.value();
-    if (target.hp <= 0) {
-        target.hp = 0;
-        target.is_dead = 1;
-    }
-    return dealt;
+    return Damage{target.take_damage(raw.value())};
 }
 
 Damage EncounterMath::resolve(Monster& attacker, Hero& target)
 {
     const Damage raw = resolve(Dice{2, 6}, attacker.strength);
-    Damage dealt;
-    resolve(raw, target.armor, dealt);
-
-    target.hp -= dealt.value();
-    if (target.hp < 0)
-        target.hp = 0;
-    return dealt;
+    return Damage{target.take_damage(raw.value())};
 }
 
 int compute_raw_damage(int strength, int dice_count, int dice_sides)
@@ -407,23 +456,12 @@ int apply_armor(int raw_damage, int armor)
 
 int apply_damage_to_monster(Monster& m, int incoming)
 {
-    int final_damage = apply_armor(incoming, m.armor);
-
-    m.hp -= final_damage;
-    if (m.hp <= 0) {
-        m.hp = 0;
-        m.is_dead = 1;
-    }
-    return final_damage;
+    return m.take_damage(incoming);
 }
 
 int apply_damage_to_hero(Hero& h, int incoming)
 {
-    int final_damage = apply_armor(incoming, h.armor);
-
-    h.hp -= final_damage;
-    if (h.hp < 0) h.hp = 0;
-    return final_damage;
+    return h.take_damage(incoming);
 }
 
 /* Hero swings at a monster. Returns the damage that landed. */
@@ -943,6 +981,12 @@ int run_campaign(int verbose)
     Merchant& yarrow = *yarrow_owner;      /* non-owning alias for readability */
 
     if (verbose) {
+        Roster roster;
+        roster.add(hero);
+        roster.add(*find_in_bestiary(bestiary, "kobold"));
+        roster.add(yarrow);
+        std::printf("\nRoster:\n");
+        roster.describe_all();
         print_hero(hero);
         print_bestiary(bestiary);
         print_loot_table();

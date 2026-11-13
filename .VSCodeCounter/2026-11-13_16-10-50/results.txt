@@ -1,0 +1,82 @@
+Date : 2026-11-13 16:10:50
+Directory : /mnt/c/Users/lajoy/OneDrive/Documents/homework/IS_267_Starter_Repo/dungeon-delve-core
+Total : 37 files,  3853 codes, 912 comments, 965 blanks, all 5730 lines
+
+Languages
++----------+------------+------------+------------+------------+------------+
+| language | files      | code       | comment    | blank      | total      |
++----------+------------+------------+------------+------------+------------+
+| C++      |         20 |      2,654 |        912 |        568 |      4,134 |
+| Markdown |         11 |        803 |          0 |        342 |      1,145 |
+| CMake    |          5 |        314 |          0 |         54 |        368 |
+| JSON     |          1 |         82 |          0 |          1 |         83 |
++----------+------------+------------+------------+------------+------------+
+
+Directories
++----------------------------------------------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| path                                                                                                                                         | files      | code       | comment    | blank      | total      |
++----------------------------------------------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| .                                                                                                                                            |         37 |      3,853 |        912 |        965 |      5,730 |
+| . (Files)                                                                                                                                    |          6 |        452 |          0 |        132 |        584 |
+| include                                                                                                                                      |          1 |        186 |         63 |         60 |        309 |
+| labs                                                                                                                                         |         28 |      2,260 |        703 |        553 |      3,516 |
+| labs (Files)                                                                                                                                 |          2 |        171 |          0 |         37 |        208 |
+| labs/Lab03 before hex                                                                                                                        |          2 |        191 |        106 |         41 |        338 |
+| labs/Lab03 before hex/impl_compose                                                                                                           |          1 |         83 |         54 |         19 |        156 |
+| labs/Lab03 before hex/impl_inherit                                                                                                           |          1 |        108 |         52 |         22 |        182 |
+| labs/week01_ownership_audit                                                                                                                  |          1 |         59 |         42 |         16 |        117 |
+| labs/week02_prediction_table                                                                                                                 |          4 |        193 |         23 |         58 |        274 |
+| labs/week03_same_problem_twice                                                                                                               |          9 |        777 |        266 |        194 |      1,237 |
+| labs/week03_same_problem_twice (Files)                                                                                                       |          7 |        558 |        160 |        150 |        868 |
+| labs/week03_same_problem_twice/impl_compose                                                                                                  |          1 |         94 |         54 |         20 |        168 |
+| labs/week03_same_problem_twice/impl_inherit                                                                                                  |          1 |        125 |         52 |         24 |        201 |
+| labs/week04_kill_the_switch                                                                                                                  |         10 |        869 |        266 |        207 |      1,342 |
+| labs/week04_kill_the_switch (Files)                                                                                                          |          9 |        717 |        224 |        185 |      1,126 |
+| labs/week04_kill_the_switch/impl                                                                                                             |          1 |        152 |         42 |         22 |        216 |
+| src                                                                                                                                          |          1 |        823 |         86 |        171 |      1,080 |
+| tests                                                                                                                                        |          1 |        132 |         60 |         49 |        241 |
++----------------------------------------------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+
+Files
++----------------------------------------------------------------------------------------------------------------------------------------------+----------+------------+------------+------------+------------+
+| filename                                                                                                                                     | language | code       | comment    | blank      | total      |
++----------------------------------------------------------------------------------------------------------------------------------------------+----------+------------+------------+------------+------------+
+| /mnt/c/Users/lajoy/OneDrive/Documents/homework/IS_267_Starter_Repo/dungeon-delve-core/CMakeLists.txt                                         | CMake    |        121 |          0 |         21 |        142 |
+| /mnt/c/Users/lajoy/OneDrive/Documents/homework/IS_267_Starter_Repo/dungeon-delve-core/CMakePresets.json                                      | JSON     |         82 |          0 |          1 |         83 |
+| /mnt/c/Users/lajoy/OneDrive/Documents/homework/IS_267_Starter_Repo/dungeon-delve-core/HIERARCHY.md                                           | Markdown |         45 |          0 |         11 |         56 |
+| /mnt/c/Users/lajoy/OneDrive/Documents/homework/IS_267_Starter_Repo/dungeon-delve-core/README.md                                              | Markdown |        144 |          0 |         71 |        215 |
+| /mnt/c/Users/lajoy/OneDrive/Documents/homework/IS_267_Starter_Repo/dungeon-delve-core/STUDENT.md                                             | Markdown |         33 |          0 |         17 |         50 |
+| /mnt/c/Users/lajoy/OneDrive/Documents/homework/IS_267_Starter_Repo/dungeon-delve-core/TRIAGE.md                                              | Markdown |         27 |          0 |         11 |         38 |
+| /mnt/c/Users/lajoy/OneDrive/Documents/homework/IS_267_Starter_Repo/dungeon-delve-core/include/dungeon_delve.h                                | C++      |        186 |         63 |         60 |        309 |
+| /mnt/c/Users/lajoy/OneDrive/Documents/homework/IS_267_Starter_Repo/dungeon-delve-core/labs/CMakeLists.txt                                    | CMake    |        123 |          0 |         19 |        142 |
+| /mnt/c/Users/lajoy/OneDrive/Documents/homework/IS_267_Starter_Repo/dungeon-delve-core/labs/HOW_TO_ADD_LAB_3.md                               | Markdown |         48 |          0 |         18 |         66 |
+| /mnt/c/Users/lajoy/OneDrive/Documents/homework/IS_267_Starter_Repo/dungeon-delve-core/labs/Lab03 before hex/impl_compose/spells.cpp          | C++      |         83 |         54 |         19 |        156 |
+| /mnt/c/Users/lajoy/OneDrive/Documents/homework/IS_267_Starter_Repo/dungeon-delve-core/labs/Lab03 before hex/impl_inherit/spells.cpp          | C++      |        108 |         52 |         22 |        182 |
+| /mnt/c/Users/lajoy/OneDrive/Documents/homework/IS_267_Starter_Repo/dungeon-delve-core/labs/week01_ownership_audit/ownership_audit.cpp        | C++      |         59 |         42 |         16 |        117 |
+| /mnt/c/Users/lajoy/OneDrive/Documents/homework/IS_267_Starter_Repo/dungeon-delve-core/labs/week02_prediction_table/CMakeLists.txt            | CMake    |          3 |          0 |          1 |          4 |
+| /mnt/c/Users/lajoy/OneDrive/Documents/homework/IS_267_Starter_Repo/dungeon-delve-core/labs/week02_prediction_table/PREDICTIONS.md            | Markdown |         60 |          0 |         29 |         89 |
+| /mnt/c/Users/lajoy/OneDrive/Documents/homework/IS_267_Starter_Repo/dungeon-delve-core/labs/week02_prediction_table/README.md                 | Markdown |         24 |          0 |         10 |         34 |
+| /mnt/c/Users/lajoy/OneDrive/Documents/homework/IS_267_Starter_Repo/dungeon-delve-core/labs/week02_prediction_table/prediction_table.cpp      | C++      |        106 |         23 |         18 |        147 |
+| /mnt/c/Users/lajoy/OneDrive/Documents/homework/IS_267_Starter_Repo/dungeon-delve-core/labs/week03_same_problem_twice/ANALYSIS.md             | Markdown |         93 |          0 |         46 |        139 |
+| /mnt/c/Users/lajoy/OneDrive/Documents/homework/IS_267_Starter_Repo/dungeon-delve-core/labs/week03_same_problem_twice/CMakeLists.txt          | CMake    |         41 |          0 |          7 |         48 |
+| /mnt/c/Users/lajoy/OneDrive/Documents/homework/IS_267_Starter_Repo/dungeon-delve-core/labs/week03_same_problem_twice/README.md               | Markdown |        103 |          0 |         38 |        141 |
+| /mnt/c/Users/lajoy/OneDrive/Documents/homework/IS_267_Starter_Repo/dungeon-delve-core/labs/week03_same_problem_twice/impl_compose/spells.cpp | C++      |         94 |         54 |         20 |        168 |
+| /mnt/c/Users/lajoy/OneDrive/Documents/homework/IS_267_Starter_Repo/dungeon-delve-core/labs/week03_same_problem_twice/impl_inherit/spells.cpp | C++      |        125 |         52 |         24 |        201 |
+| /mnt/c/Users/lajoy/OneDrive/Documents/homework/IS_267_Starter_Repo/dungeon-delve-core/labs/week03_same_problem_twice/lab_support.cpp         | C++      |         13 |         10 |          4 |         27 |
+| /mnt/c/Users/lajoy/OneDrive/Documents/homework/IS_267_Starter_Repo/dungeon-delve-core/labs/week03_same_problem_twice/same_problem_twice.cpp  | C++      |         53 |         18 |         11 |         82 |
+| /mnt/c/Users/lajoy/OneDrive/Documents/homework/IS_267_Starter_Repo/dungeon-delve-core/labs/week03_same_problem_twice/spellbook.h             | C++      |         31 |         70 |         10 |        111 |
+| /mnt/c/Users/lajoy/OneDrive/Documents/homework/IS_267_Starter_Repo/dungeon-delve-core/labs/week03_same_problem_twice/tests.cpp               | C++      |        224 |         62 |         34 |        320 |
+| /mnt/c/Users/lajoy/OneDrive/Documents/homework/IS_267_Starter_Repo/dungeon-delve-core/labs/week04_kill_the_switch/ANALYSIS.md                | Markdown |        122 |          0 |         55 |        177 |
+| /mnt/c/Users/lajoy/OneDrive/Documents/homework/IS_267_Starter_Repo/dungeon-delve-core/labs/week04_kill_the_switch/CMakeLists.txt             | CMake    |         26 |          0 |          6 |         32 |
+| /mnt/c/Users/lajoy/OneDrive/Documents/homework/IS_267_Starter_Repo/dungeon-delve-core/labs/week04_kill_the_switch/README.md                  | Markdown |        104 |          0 |         36 |        140 |
+| /mnt/c/Users/lajoy/OneDrive/Documents/homework/IS_267_Starter_Repo/dungeon-delve-core/labs/week04_kill_the_switch/impl/dispatch.cpp          | C++      |        152 |         42 |         22 |        216 |
+| /mnt/c/Users/lajoy/OneDrive/Documents/homework/IS_267_Starter_Repo/dungeon-delve-core/labs/week04_kill_the_switch/kill_the_switch.cpp        | C++      |         59 |         19 |         17 |         95 |
+| /mnt/c/Users/lajoy/OneDrive/Documents/homework/IS_267_Starter_Repo/dungeon-delve-core/labs/week04_kill_the_switch/kill_the_switch.h          | C++      |         47 |        112 |         18 |        177 |
+| /mnt/c/Users/lajoy/OneDrive/Documents/homework/IS_267_Starter_Repo/dungeon-delve-core/labs/week04_kill_the_switch/lab_support.cpp            | C++      |         55 |         14 |         12 |         81 |
+| /mnt/c/Users/lajoy/OneDrive/Documents/homework/IS_267_Starter_Repo/dungeon-delve-core/labs/week04_kill_the_switch/test_harness.h             | C++      |         49 |         12 |         12 |         73 |
+| /mnt/c/Users/lajoy/OneDrive/Documents/homework/IS_267_Starter_Repo/dungeon-delve-core/labs/week04_kill_the_switch/tests.cpp                  | C++      |        201 |         46 |         22 |        269 |
+| /mnt/c/Users/lajoy/OneDrive/Documents/homework/IS_267_Starter_Repo/dungeon-delve-core/labs/week04_kill_the_switch/variant_tests.cpp          | C++      |         54 |         21 |          7 |         82 |
+| /mnt/c/Users/lajoy/OneDrive/Documents/homework/IS_267_Starter_Repo/dungeon-delve-core/src/dungeon_delve.cpp                                  | C++      |        823 |         86 |        171 |      1,080 |
+| /mnt/c/Users/lajoy/OneDrive/Documents/homework/IS_267_Starter_Repo/dungeon-delve-core/tests/regression.cpp                                   | C++      |        132 |         60 |         49 |        241 |
+| Total                                                                                                                                        |          |      3,853 |        912 |        965 |      5,730 |
++----------------------------------------------------------------------------------------------------------------------------------------------+----------+------------+------------+------------+------------+

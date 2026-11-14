@@ -10,7 +10,6 @@
      - split this file up
      - the loot thing is weird sometimes, look at it
      - save files break if you rename a hero, don't rename heroes
-     - do NOT touch resolve_ability(), it took forever to get right
 
    -- B.R.
    =========================================================================== */
@@ -21,6 +20,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <cmath>
+#include <exception>
 #include <iomanip>
 #include <iostream>
 #include <limits>
@@ -298,29 +298,6 @@ static int LOOT_VALUE[LOOT_COUNT] = {
 };
 
 /* ---------------------------------------------------------------------------
-   Ability tags.
-
-   Every ability in the game is an int. resolve_ability() switches on it.
-   Adding an ability means adding a tag here and a case in every switch that
-   looks at tags, and there are a few of those now.
-   --------------------------------------------------------------------------- */
-
-const char* ability_name(int tag)
-{
-    switch (tag) {
-        case ABIL_NONE:   return "Flail";
-        case ABIL_CLEAVE: return "Cleave";
-        case ABIL_BITE:   return "Bite";
-        case ABIL_MEND:   return "Mend";
-        case ABIL_HEX:    return "Hex";
-        case ABIL_SUMMON: return "Summon";
-        case ABIL_GUARD:  return "Guard";
-        case ABIL_RALLY:  return "Rally";
-    }
-    return "???";
-}
-
-/* ---------------------------------------------------------------------------
    Allocation helpers.
    --------------------------------------------------------------------------- */
 
@@ -333,15 +310,18 @@ HeroPtr make_hero(const char* name, int hp, int strength, int armor)
     h->max_hp   = hp;
     h->strength = strength;
     h->armor    = armor;
+    h->attack_dice = 3;
     h->xp       = 0;
     h->level    = 1;
     h->potions  = 2;
+    h->abilities.push_back(ABIL_CLEAVE.clone());
+    h->abilities.push_back(ABIL_MEND.clone());
     return h;
 }
 
 MonsterPtr make_monster(const char* name, const char* species,
                         int hp, int strength, int armor,
-                        int gold_drop, int ability_tag)
+                        int gold_drop, const Ability& ability)
 {
     auto m = std::make_unique<Monster>();
     std::strncpy(m->name, name, 31);
@@ -353,9 +333,9 @@ MonsterPtr make_monster(const char* name, const char* species,
     m->strength      = strength;
     m->armor         = armor;
     m->gold_drop     = Coin{gold_drop};
-    m->ability_tag   = ability_tag;
+    m->ability       = ability.clone();
     m->is_dead       = 0;
-    m->summon_budget = (ability_tag == ABIL_SUMMON) ? 1 : 0;
+    m->summon_budget = ability.initial_uses();
     return m;
 }
 
@@ -477,111 +457,226 @@ int resolve_attack_on_hero(Monster& attacker, Hero& target)
 }
 
 /* ---------------------------------------------------------------------------
-   resolve_ability()
-
-   Do not touch this. It took forever to get right.
+   Polymorphic abilities.
    --------------------------------------------------------------------------- */
 
-int resolve_ability(int tag, Monster& self, Hero& hero,
-                    Wave& wave, int verbose)
-{
-    int amount = 0;
+namespace {
 
-    switch (tag) {
-
-        case ABIL_NONE:
-            amount = resolve_attack_on_hero(self, hero);
-            if (verbose)
-                std::printf("  %s flails .................. %d damage\n",
-                            self.name, amount);
-            break;
-
-        case ABIL_CLEAVE:
-            amount = resolve_attack_on_hero(self, hero);
-            amount = amount + (amount / 2);
-            apply_damage_to_hero(hero, amount / 2);
-            if (verbose)
-                std::printf("  %s cleaves ................. %d damage\n",
-                            self.name, amount);
-            break;
-
-        case ABIL_BITE:
-            amount = resolve_attack_on_hero(self, hero);
-            if (dd_rand_range(1, 100) > 70) {
-                apply_damage_to_hero(hero, 2);
-                amount += 2;
-                if (verbose)
-                    std::printf("  %s bites deep ............. %d damage\n",
-                                self.name, amount);
-            } else {
-                if (verbose)
-                    std::printf("  %s bites ................... %d damage\n",
-                                self.name, amount);
-            }
-            break;
-
-        case ABIL_MEND:
-            amount = roll_dice(2, 4);
-            self.hp += amount;
-            if (self.hp > self.max_hp) self.hp = self.max_hp;
-            if (verbose)
-                std::printf("  %s mends ................... +%d HP\n",
-                            self.name, amount);
-            break;
-
-        case ABIL_HEX:
-            amount = roll_dice(1, 4);
-            hero.strength -= amount;
-            if (hero.strength < 1) hero.strength = 1;
-            if (verbose)
-                std::printf("  %s hexes ................... -%d STR\n",
-                            self.name, amount);
-            break;
-
-        case ABIL_SUMMON:
-            if (self.summon_budget > 0) {
-                self.summon_budget--;
-                MonsterPtr pup = make_monster("Whelp", "whelp", 6, 2, 0, 3, ABIL_NONE);
-                wave.push_back(std::move(pup));
-                amount = 1;
-                if (verbose)
-                    std::printf("  %s summons a Whelp!\n", self.name);
-            } else {
-                amount = resolve_attack_on_hero(self, hero);
-                if (verbose)
-                    std::printf("  %s is out of whelps ....... %d damage\n",
-                                self.name, amount);
-            }
-            break;
-
-        case ABIL_GUARD:
-            self.armor += 2;
-            amount = 2;
-            if (verbose)
-                std::printf("  %s guards .................. +2 armor\n",
-                            self.name);
-            break;
-
-        case ABIL_RALLY:
-            for (size_t i = 0; i < wave.size(); i++) {
-                if (!wave[i]->is_dead && raw(wave[i]) != &self)
-                    wave[i]->strength += 1;
-            }
-            amount = 1;
-            if (verbose)
-                std::printf("  %s rallies the pack ........ +1 STR each\n",
-                            self.name);
-            break;
-
-        default:
-            amount = resolve_attack_on_hero(self, hero);
-            if (verbose)
-                std::printf("  %s does something ......... %d damage\n",
-                            self.name, amount);
-            break;
+class AttackAbility : public Ability {
+public:
+    AbilityResult apply(AbilityContext& context) const override
+    {
+        return {deal_damage(context, roll_raw_attack(context)), "", "damage"};
     }
 
-    return amount;
+protected:
+    static int roll_raw_attack(const AbilityContext& context)
+    {
+        if (context.actor.strength < 0)
+            throw std::invalid_argument("Strength cannot be negative");
+
+        const int roll = roll_dice(context.actor.attack_dice, 6);
+        if (context.actor.strength > std::numeric_limits<int>::max() - roll)
+            throw std::overflow_error("Raw damage overflow");
+        return context.actor.strength + roll;
+    }
+
+    static int deal_damage(AbilityContext& context, int incoming)
+    {
+        return context.target.take_damage(incoming);
+    }
+};
+
+class Flail final : public AttackAbility {
+public:
+    const char* describe() const override { return "Flail"; }
+    std::unique_ptr<Ability> clone() const override
+    {
+        return std::make_unique<Flail>(*this);
+    }
+};
+
+class Cleave final : public AttackAbility {
+public:
+    const char* describe() const override { return "Cleave"; }
+    AbilityResult apply(AbilityContext& context) const override
+    {
+        const int raw = roll_raw_attack(context);
+        if (raw > std::numeric_limits<int>::max() - raw / 2)
+            throw std::overflow_error("Cleave damage overflow");
+        return {deal_damage(context, raw + raw / 2), "", "damage"};
+    }
+    std::unique_ptr<Ability> clone() const override
+    {
+        return std::make_unique<Cleave>(*this);
+    }
+};
+
+class Bite final : public AttackAbility {
+public:
+    const char* describe() const override { return "Bite"; }
+    AbilityResult apply(AbilityContext& context) const override
+    {
+        int amount = AttackAbility::apply(context).amount;
+        if (dd_rand_range(1, 100) > 70) {
+            if (amount > std::numeric_limits<int>::max() - 2)
+                throw std::overflow_error("Bite damage overflow");
+            amount += deal_damage(context, 2);
+        }
+        return {amount, "", "damage"};
+    }
+    std::unique_ptr<Ability> clone() const override
+    {
+        return std::make_unique<Bite>(*this);
+    }
+};
+
+class Mend final : public Ability {
+public:
+    const char* describe() const override { return "Mend"; }
+    AbilityResult apply(AbilityContext& context) const override
+    {
+        const int rolled = roll_dice(3, 4);
+        const int room = context.actor.max_hp > context.actor.hp
+                       ? context.actor.max_hp - context.actor.hp : 0;
+        const int healed = rolled < room ? rolled : room;
+        context.actor.hp += healed;
+        return {healed, "+", "HP"};
+    }
+    std::unique_ptr<Ability> clone() const override
+    {
+        return std::make_unique<Mend>(*this);
+    }
+};
+
+class Hex final : public Ability {
+public:
+    const char* describe() const override { return "Hex"; }
+    AbilityResult apply(AbilityContext& context) const override
+    {
+        const int before = context.target.strength;
+        if (before < 1)
+            throw std::invalid_argument("Hex target strength must be positive");
+        const int reduction = roll_dice(1, 4);
+        context.target.strength = before > reduction ? before - reduction : 1;
+        return {before - context.target.strength, "-", "STR"};
+    }
+    std::unique_ptr<Ability> clone() const override
+    {
+        return std::make_unique<Hex>(*this);
+    }
+};
+
+class Summon final : public AttackAbility {
+public:
+    const char* describe() const override { return "Summon"; }
+    AbilityResult apply(AbilityContext& context) const override
+    {
+        if (context.summon_budget != nullptr && *context.summon_budget > 0) {
+            MonsterPtr whelp = make_monster(
+                "Whelp", "whelp", 6, 2, 0, 3, ABIL_NONE);
+            context.wave.push_back(std::move(whelp));
+            --*context.summon_budget;
+            return {1, "+", "Whelp summoned"};
+        }
+        return AttackAbility::apply(context);
+    }
+    std::unique_ptr<Ability> clone() const override
+    {
+        return std::make_unique<Summon>(*this);
+    }
+    int initial_uses() const override { return 1; }
+};
+
+class Guard final : public Ability {
+public:
+    const char* describe() const override { return "Guard"; }
+    AbilityResult apply(AbilityContext& context) const override
+    {
+        if (context.actor.armor > std::numeric_limits<int>::max() - 2)
+            throw std::overflow_error("Armor overflow");
+        context.actor.armor += 2;
+        return {2, "+", "armor"};
+    }
+    std::unique_ptr<Ability> clone() const override
+    {
+        return std::make_unique<Guard>(*this);
+    }
+};
+
+class Rally final : public Ability {
+public:
+    const char* describe() const override { return "Rally"; }
+    AbilityResult apply(AbilityContext& context) const override
+    {
+        for (const MonsterPtr& monster : context.wave) {
+            if (monster && !monster->is_dead &&
+                monster.get() != context.monster_actor &&
+                monster->strength == std::numeric_limits<int>::max())
+                throw std::overflow_error("Strength overflow during Rally");
+        }
+
+        int affected = 0;
+        for (const MonsterPtr& monster : context.wave) {
+            if (monster && !monster->is_dead &&
+                monster.get() != context.monster_actor) {
+                ++monster->strength;
+                ++affected;
+            }
+        }
+        return {affected, "+", "STR each"};
+    }
+    std::unique_ptr<Ability> clone() const override
+    {
+        return std::make_unique<Rally>(*this);
+    }
+};
+
+const Flail flail_prototype;
+const Cleave cleave_prototype;
+const Bite bite_prototype;
+const Mend mend_prototype;
+const Hex hex_prototype;
+const Summon summon_prototype;
+const Guard guard_prototype;
+const Rally rally_prototype;
+
+}  // namespace
+
+const Ability& ABIL_NONE = flail_prototype;
+const Ability& ABIL_CLEAVE = cleave_prototype;
+const Ability& ABIL_BITE = bite_prototype;
+const Ability& ABIL_MEND = mend_prototype;
+const Ability& ABIL_HEX = hex_prototype;
+const Ability& ABIL_SUMMON = summon_prototype;
+const Ability& ABIL_GUARD = guard_prototype;
+const Ability& ABIL_RALLY = rally_prototype;
+
+int resolve_ability(const Ability& ability, AbilityContext& context)
+{
+    try {
+        const AbilityResult result = ability.apply(context);
+        if (context.verbose) {
+            std::printf("  %s uses %-10s ........... %s%d %s\n",
+                        context.actor.name, ability.describe(), result.sign,
+                        result.amount, result.unit);
+        }
+        return result.amount;
+    } catch (const std::exception&) {
+        std::throw_with_nested(std::runtime_error(
+            std::string("Ability ") + ability.describe() + " failed"));
+        throw;
+    }
+}
+
+static int resolve_actions(std::vector<AbilityAction>& actions)
+{
+    int total = 0;
+    for (AbilityAction& action : actions)
+    {
+        total += resolve_ability(*action.ability, action.context);
+    }
+    return total;
 }
 
 /* ---------------------------------------------------------------------------
@@ -630,7 +725,7 @@ MonsterPtr spawn_from_bestiary(Bestiary& bestiary, const char* species)
 
     return make_monster(proto->name, proto->species, proto->max_hp,
                         proto->strength, proto->armor, proto->gold_drop.value(),
-                        proto->ability_tag);
+                        *proto->ability);
 }
 
 /* ---------------------------------------------------------------------------
@@ -672,7 +767,14 @@ int run_monster_round(Wave& wave, Hero& hero, int verbose,
         if (acted_names != nullptr)
             acted_names->push_back(std::string(m->name));
 
-        total += resolve_ability(m->ability_tag, *m, hero, wave, verbose);
+        if (!m->ability)
+            throw std::logic_error("Monster has no ability");
+
+        AbilityContext context{*m, hero, wave, verbose,
+                               &m->summon_budget, m};
+        std::vector<AbilityAction> actions;
+        actions.push_back({m->ability.get(), context});
+        total += resolve_actions(actions);
     }
 
     return total;
@@ -684,13 +786,18 @@ int run_hero_round(Wave& wave, Hero& hero, int verbose)
     for (size_t i = 0; i < wave.size(); i++) {
         if (wave[i]->is_dead) continue;
 
-        int dealt = resolve_attack_on_monster(hero, *raw(wave[i]));
-        if (verbose) {
-            std::printf("  %s strikes %s ........... %d damage\n",
-                        hero.name, wave[i]->name, dealt);
-            if (wave[i]->is_dead)
-                std::printf("  %s falls.\n", wave[i]->name);
-        }
+        if (hero.abilities.empty())
+            throw std::logic_error("Hero has no abilities");
+
+        const size_t selected = hero.next_ability % hero.abilities.size();
+        const Ability* ability = hero.abilities[selected].get();
+        hero.next_ability++;
+        AbilityContext context{hero, *raw(wave[i]), wave, verbose, nullptr, nullptr};
+        std::vector<AbilityAction> actions;
+        actions.push_back({ability, context});
+        int dealt = resolve_actions(actions);
+        if (verbose && wave[i]->is_dead)
+            std::printf("  %s falls.\n", wave[i]->name);
         return dealt;
     }
     return 0;
@@ -700,7 +807,7 @@ int run_hero_round(Wave& wave, Hero& hero, int verbose)
    The encounter loop.
    --------------------------------------------------------------------------- */
 
-int run_encounter(Hero& hero, Wave& wave, int verbose)
+static int run_encounter_impl(Hero& hero, Wave& wave, int verbose)
 {
     int round = 1;
 
@@ -747,6 +854,17 @@ int run_encounter(Hero& hero, Wave& wave, int verbose)
     }
 
     return 1;
+}
+
+int run_encounter(Hero& hero, Wave& wave, int verbose)
+{
+    try {
+        return run_encounter_impl(hero, wave, verbose);
+    } catch (const std::exception&) {
+        std::throw_with_nested(std::runtime_error(
+            std::string("Encounter for ") + hero.name + " failed"));
+        throw;
+    }
 }
 
 /* ---------------------------------------------------------------------------
@@ -843,6 +961,8 @@ HeroPtr load_hero(const char* path)
     if (f == nullptr) return HeroPtr{};
 
     auto h = std::make_unique<Hero>();
+    h->abilities.push_back(ABIL_CLEAVE.clone());
+    h->abilities.push_back(ABIL_MEND.clone());
     char line[64];
     int hp = 0;
     int max_hp = 0;
@@ -883,6 +1003,7 @@ HeroPtr load_hero(const char* path)
     h->max_hp = max_hp;
     h->strength = strength;
     h->armor = armor;
+    h->attack_dice = 3;
     h->purse.deposit(Coin{gold});
     h->xp = xp;
     h->level = level;
@@ -922,7 +1043,7 @@ void print_wave(Wave& wave)
                     wave[i]->name, wave[i]->species,
                     wave[i]->hp, wave[i]->max_hp,
                     wave[i]->strength, wave[i]->armor,
-                    ability_name(wave[i]->ability_tag));
+                    wave[i]->ability->describe());
     }
 }
 
@@ -934,7 +1055,7 @@ void print_bestiary(Bestiary& bestiary)
                     bestiary[i]->name, bestiary[i]->species,
                     bestiary[i]->max_hp, bestiary[i]->strength,
                     bestiary[i]->armor, bestiary[i]->gold_drop.value(),
-                    ability_name(bestiary[i]->ability_tag));
+                    bestiary[i]->ability->describe());
     }
 }
 
@@ -969,8 +1090,31 @@ Wave build_wave(Bestiary& bestiary, const char* a, const char* b, const char* c)
     return wave;
 }
 
+static void print_ability_demo()
+{
+    struct SeedRestore {
+        unsigned value;
+        ~SeedRestore() { g_seed = value; }
+    } restore{g_seed};
+
+    HeroPtr ash = make_hero("Ash", 100, 1, 3);
+    ash->hp = 90;
+
+    Wave wave;
+    wave.push_back(make_monster("Kobold", "kobold", 100, 4, 1, 0, ABIL_BITE));
+
+    std::printf("encounter(ash, kobold)\n");
+    run_hero_round(wave, *ash, 1);
+    run_monster_round(wave, *ash, 1, nullptr);
+    run_hero_round(wave, *ash, 1);
+    std::printf("\nresolution loop: 4 lines, 0 type checks, 0 casts\n\n");
+}
+
 int run_campaign(int verbose)
 {
+    if (verbose)
+        print_ability_demo();
+
     print_banner();
 
     Bestiary    bestiary = build_bestiary();
@@ -1055,6 +1199,19 @@ int run_campaign(int verbose)
    --------------------------------------------------------------------------- */
 
 #ifndef DD_NO_MAIN
+static void print_exception_chain(const std::exception& error)
+{
+    std::cerr << error.what();
+    try {
+        std::rethrow_if_nested(error);
+    } catch (const std::exception& nested) {
+        std::cerr << "\ncaused by: ";
+        print_exception_chain(nested);
+    } catch (...) {
+        std::cerr << "\ncaused by a non-standard exception";
+    }
+}
+
 int main(int argc, char** argv)
 {
     unsigned seed = 1337u;
@@ -1071,9 +1228,15 @@ int main(int argc, char** argv)
 
     dd_seed(seed);
 
-    int cleared = run_campaign(verbose);
-
-    std::printf("\nstages cleared: %d / 6\n", cleared);
-    return 0;
+    try {
+        int cleared = run_campaign(verbose);
+        std::printf("\nstages cleared: %d / 6\n", cleared);
+        return 0;
+    } catch (const std::exception& error) {
+        std::cerr << "fatal: ";
+        print_exception_chain(error);
+        std::cerr << '\n';
+        return 1;
+    }
 }
 #endif

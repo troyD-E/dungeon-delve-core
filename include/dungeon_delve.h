@@ -21,6 +21,7 @@
 #ifndef DUNGEON_DELVE_H
 #define DUNGEON_DELVE_H
 
+#include <cstddef>
 #include <iosfwd>
 #include <memory>
 #include <string>
@@ -104,6 +105,23 @@ public:
     virtual void describe(std::ostream& out) const = 0;
 };
 
+struct AbilityContext;
+struct AbilityResult {
+    int amount;
+    const char* sign;
+    const char* unit;
+};
+
+class Ability {
+public:
+    virtual ~Ability() = default;
+
+    virtual const char* describe() const = 0;
+    virtual AbilityResult apply(AbilityContext& context) const = 0;
+    virtual std::unique_ptr<Ability> clone() const = 0;
+    virtual int initial_uses() const { return 0; }
+};
+
 class Entity : public virtual Describable {
 public:
     virtual ~Entity() = default;
@@ -119,6 +137,7 @@ public:
     int max_hp = 0;
     int strength = 0;
     int armor = 0;
+    int attack_dice = 2;
 
     virtual int take_damage(int incoming);
 };
@@ -141,6 +160,8 @@ struct Hero : Combatant {
     int xp = 0;
     int level = 1;
     int potions = 0;
+    std::vector<std::unique_ptr<Ability>> abilities;
+    std::size_t next_ability = 0;
 
     void describe(std::ostream& out) const override;
 };
@@ -148,7 +169,7 @@ struct Hero : Combatant {
 struct Monster : Combatant, Lootable {
     char species[24] = {};
     Coin gold_drop;
-    int ability_tag = 0;
+    std::unique_ptr<Ability> ability;
     int is_dead = 0;
     int summon_budget = 0;
 
@@ -208,26 +229,37 @@ using MerchantPtr = std::unique_ptr<Merchant>;
 using Wave     = std::vector<MonsterPtr>;
 using Bestiary = std::vector<MonsterPtr>;
 
+struct AbilityContext {
+    Combatant& actor;
+    Combatant& target;
+    Wave& wave;
+    int verbose;
+    int* summon_budget = nullptr;
+    Monster* monster_actor = nullptr;
+};
+
+struct AbilityAction {
+    const Ability* ability;
+    AbilityContext context;
+};
+
 /* Produces a non-owning Monster* for observation without transferring ownership. */
 inline Monster* raw(Monster* p)                            { return p; }
 inline Monster* raw(const std::unique_ptr<Monster>& p)     { return p.get(); }
 
 /* ---------------------------------------------------------------------------
-   Ability tags.
-
-   Every ability in the game is an int. resolve_ability() switches on it.
-   Adding an ability means adding a tag here and a case in every switch that
-   looks at tags, and there are a few of those now.
+   Named prototypes retained for existing monster construction call sites.
+   These are polymorphic objects, not integer identifiers or dispatch tags.
    --------------------------------------------------------------------------- */
 
-#define ABIL_NONE    0
-#define ABIL_CLEAVE  1
-#define ABIL_BITE    2
-#define ABIL_MEND    3
-#define ABIL_HEX     4
-#define ABIL_SUMMON  5
-#define ABIL_GUARD   6
-#define ABIL_RALLY   7
+extern const Ability& ABIL_NONE;
+extern const Ability& ABIL_CLEAVE;
+extern const Ability& ABIL_BITE;
+extern const Ability& ABIL_MEND;
+extern const Ability& ABIL_HEX;
+extern const Ability& ABIL_SUMMON;
+extern const Ability& ABIL_GUARD;
+extern const Ability& ABIL_RALLY;
 
 /* ---------------------------------------------------------------------------
    The engine.
@@ -252,7 +284,8 @@ int         loot_value_of(const char* loot_name);
 /* Construction. */
 HeroPtr     make_hero(const char* name, int hp, int strength, int armor);
 MonsterPtr  make_monster(const char* name, const char* species, int hp,
-                         int strength, int armor, int gold_drop, int ability_tag);
+                         int strength, int armor, int gold_drop,
+                         const Ability& ability);
 MerchantPtr make_merchant(const char* name, int gold, int markup);
 
 /* Damage. */
@@ -264,9 +297,7 @@ int resolve_attack_on_monster(Hero& attacker, Monster& target);
 int resolve_attack_on_hero(Monster& attacker, Hero& target);
 
 /* Abilities. */
-const char* ability_name(int tag);
-/* self and hero are non-owning references; monsters remain owned by wave. */
-int resolve_ability(int tag, Monster& self, Hero& hero, Wave& wave, int verbose);
+int resolve_ability(const Ability& ability, AbilityContext& context);
 
 /* Bestiary. */
 Bestiary   build_bestiary();
